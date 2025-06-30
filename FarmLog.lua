@@ -3513,13 +3513,13 @@ function FarmLog_MinimapButton:UpdateTooltipText()
 		xpPerHour = GetFarmVar("xpPerHour") or 0
 	end 
 	local text = "|cff5CC4ff" .. ADDON_NAME
-	text = text .. "|r|nSession: " text = text .. sessionColor text = text .. FLogVars.currentFarm 
-	text = text .. "|r|nTime: " text = text .. sessionColor text = text .. secondsToClock(FarmLog:GetCurrentSessionTime()) 
+	text = text .. "|r|nSession: " .. sessionColor .. FLogVars.currentFarm 
+	text = text .. "|r|nTime: " .. sessionColor .. secondsToClock(FarmLog:GetCurrentSessionTime()) 
 	if FLogGlobalVars.track.money and isPositive(goldPerHour) then
-		text = text .. "|r|n" .. L["g/h"] .. ": |cffeeeeee" text = text .. GetShortCoinTextureString(goldPerHour) 
+		text = text .. "|r|n" .. L["g/h"] .. ": |cffeeeeee" .. GetShortCoinTextureString(goldPerHour) 
 	end
 	if FLogGlobalVars.track.xp and isPositive(xpPerHour) then
-		text = text .. "|r|n" .. L["xp/h"] .. ": |cffeeeeee" text = text .. math.floor(xpPerHour) 
+		text = text .. "|r|n" .. L["xp/h"] .. ": |cffeeeeee" .. math.floor(xpPerHour) 
 	end
 	text = text .. "|cff999999|nLeft click: |cffeeeeeeopen main window"
 	text = text .. "|cff999999|nRight click: |cffeeeeeepause/resume session"
