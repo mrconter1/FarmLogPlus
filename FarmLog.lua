@@ -496,25 +496,7 @@ local function CalculateRollingStats()
 	return tenMinAvg, rollingPerHour
 end
 
-local function UpdateGraphData(picksPerHour)
-	local farm = FLogVars.farms[FLogVars.currentFarm]
-	if not farm then return end
-	local session = farm.current
-	if not session.graphData then session.graphData = {} end
-	
-	local now = time()
-	tinsert(session.graphData, {now, picksPerHour})
-	
-	-- Keep only recent data points
-	local cutoff = now - (MAX_GRAPH_POINTS * GRAPH_UPDATE_INTERVAL)
-	local newData = {}
-	for _, point in ipairs(session.graphData) do
-		if point[1] >= cutoff then
-			tinsert(newData, point)
-		end
-	end
-	session.graphData = newData
-end
+
 
 local function GetRollingStats()
 	local farm = FLogVars.farms[FLogVars.currentFarm]
