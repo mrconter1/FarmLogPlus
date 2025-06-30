@@ -654,6 +654,10 @@ end
 -- Auction house access 
 
 local function GetAHScanPrice(itemLink)
+	-- Safe retrieval of AH scan price to avoid nil table errors
+	if not FLogGlobalVars.ahScan or not FLogGlobalVars.ahScan[REALM] then
+		return nil
+	end
 	return FLogGlobalVars.ahScan[REALM][itemLink]
 end 
 
