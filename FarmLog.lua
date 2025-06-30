@@ -658,6 +658,8 @@ local function GetAHScanPrice(itemLink)
 end 
 
 function FarmLog:GetManualPrice(itemLink)
+	if not FLogGlobalVars.ahPrice then return nil end
+	if not FLogGlobalVars.ahPrice[REALM] then return nil end
 	return FLogGlobalVars.ahPrice[REALM][itemLink]
 end 
 
@@ -666,6 +668,8 @@ local function SetAHScanPrice(itemLink, price)
 end 
 
 local function SetManualPrice(itemLink, price)
+	if not FLogGlobalVars.ahPrice then FLogGlobalVars.ahPrice = {} end
+	if not FLogGlobalVars.ahPrice[REALM] then FLogGlobalVars.ahPrice[REALM] = {} end
 	FLogGlobalVars.ahPrice[REALM][itemLink] = price 
 end 
 
@@ -2582,10 +2586,15 @@ function FarmLog:OnAddonLoaded()
 
 	FarmLog:Migrate()	
 
+	if not FLogGlobalVars.ahScan then FLogGlobalVars.ahScan = {} end
 	if not FLogGlobalVars.ahScan[REALM] then FLogGlobalVars.ahScan[REALM] = {} end 
+	if not FLogGlobalVars.ahPrice then FLogGlobalVars.ahPrice = {} end
 	if not FLogGlobalVars.ahPrice[REALM] then FLogGlobalVars.ahPrice[REALM] = {} end 
+	if not FLogGlobalVars.instances then FLogGlobalVars.instances = {} end
 	if not FLogGlobalVars.instances[REALM] then FLogGlobalVars.instances[REALM] = {} end 
+	if not FLogGlobalVars.blt then FLogGlobalVars.blt = {} end
 	if not FLogGlobalVars.blt[REALM] then FLogGlobalVars.blt[REALM] = {} end 
+	if not FLogGlobalVars.bls then FLogGlobalVars.bls = {} end
 	if not FLogGlobalVars.bls[REALM] then FLogGlobalVars.bls[REALM] = {} end 
 
 	if FLogGlobalVars.dismissLootWindowOnEsc then  
