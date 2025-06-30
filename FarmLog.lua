@@ -479,8 +479,19 @@ local function CalculateRollingStats()
 	session.rollingStats.rollingPerHour = rollingPerHour
 	session.rollingStats.lastUpdate = now
 	
-	-- Update graph data
-	UpdateGraphData(rollingPerHour)
+	-- Update graph data inline (UpdateGraphData is local function defined later)
+	if not session.graphData then session.graphData = {} end
+	tinsert(session.graphData, {now, rollingPerHour})
+	
+	-- Keep only recent data points
+	local cutoff = now - (MAX_GRAPH_POINTS * GRAPH_UPDATE_INTERVAL)
+	local newData = {}
+	for _, point in ipairs(session.graphData) do
+		if point[1] >= cutoff then
+			tinsert(newData, point)
+		end
+	end
+	session.graphData = newData
 	
 	return tenMinAvg, rollingPerHour
 end
@@ -1016,6 +1027,9 @@ end
 -- Auction house access 
 
 function FarmLog:UpdateInstanceCount()
+	if not FLogGlobalVars.instances[REALM] then 
+		FLogGlobalVars.instances[REALM] = {}
+	end
 	local c = #FLogGlobalVars.instances[REALM]
 	FarmLog_MainWindow_Buttons_Instances_Text:SetText(c)
 	if c <= 2 then 
@@ -1031,6 +1045,9 @@ function FarmLog:UpdateInstanceCount()
 end 
 
 function FarmLog:AddInstance(name, enterTime)
+	if not FLogGlobalVars.instances[REALM] then 
+		FLogGlobalVars.instances[REALM] = {}
+	end
 	tinsert(FLogGlobalVars.instances[REALM], 1, {
 		["name"] = name,
 		["enter"] = enterTime or time(),
@@ -1044,6 +1061,10 @@ end
 function FarmLog:PurgeInstances()
 	now = time()
 	local newtable = {}
+	-- Initialize instances table if it doesn't exist
+	if not FLogGlobalVars.instances[REALM] then 
+		FLogGlobalVars.instances[REALM] = {}
+	end
 	for i, meta in ipairs(FLogGlobalVars.instances[REALM]) do 
 		if meta.leave and now - meta.leave >= MAX_INSTANCES_SECONDS then break end 
 		tinsert(newtable, meta)
@@ -1052,6 +1073,9 @@ function FarmLog:PurgeInstances()
 end 
 
 function FarmLog:GetLastInstance(name)
+	if not FLogGlobalVars.instances[REALM] then 
+		FLogGlobalVars.instances[REALM] = {}
+	end
 	for i, meta in ipairs(FLogGlobalVars.instances[REALM]) do 
 		if meta.name == name then 
 			return meta, i
@@ -1060,12 +1084,19 @@ function FarmLog:GetLastInstance(name)
 end 
 
 function FarmLog:RepushInstance(index)
+	if not FLogGlobalVars.instances[REALM] then 
+		FLogGlobalVars.instances[REALM] = {}
+		return
+	end
 	local meta = tremove(FLogGlobalVars.instances[REALM], index)
 	tinsert(FLogGlobalVars.instances[REALM], 1, meta)
 	self:UpdateInstanceCount()
 end 
 
 function FarmLog:CloseOpenInstances()
+	if not FLogGlobalVars.instances[REALM] then 
+		FLogGlobalVars.instances[REALM] = {}
+	end
 	for _, meta in ipairs(FLogGlobalVars.instances[REALM]) do 
 		if not meta.leave then 
 			meta.leave = time()
