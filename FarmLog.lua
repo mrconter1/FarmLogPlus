@@ -430,7 +430,12 @@ end
 local function AddPickToHistory(itemLink, quantity, mobName)
 	if not FLogVars.enabled then return end
 	
-	local session = GetCurrentSession()
+	local farm = FLogVars.farms[FLogVars.currentFarm]
+	if not farm then 
+		farm = {["past"] = emptySession(), ["current"] = emptySession()}
+		FLogVars.farms[FLogVars.currentFarm] = farm 
+	end
+	local session = farm.current
 	if not session.pickHistory then session.pickHistory = {} end
 	
 	local now = time()
@@ -448,7 +453,9 @@ local function AddPickToHistory(itemLink, quantity, mobName)
 end
 
 local function CalculateRollingStats()
-	local session = GetCurrentSession()
+	local farm = FLogVars.farms[FLogVars.currentFarm]
+	if not farm then return end
+	local session = farm.current
 	if not session.pickHistory then return end
 	
 	local now = time()
@@ -479,7 +486,9 @@ local function CalculateRollingStats()
 end
 
 local function UpdateGraphData(picksPerHour)
-	local session = GetCurrentSession()
+	local farm = FLogVars.farms[FLogVars.currentFarm]
+	if not farm then return end
+	local session = farm.current
 	if not session.graphData then session.graphData = {} end
 	
 	local now = time()
@@ -497,7 +506,9 @@ local function UpdateGraphData(picksPerHour)
 end
 
 local function GetRollingStats()
-	local session = GetCurrentSession()
+	local farm = FLogVars.farms[FLogVars.currentFarm]
+	if not farm then return 0, 0 end
+	local session = farm.current
 	if not session.rollingStats then return 0, 0 end
 	
 	-- Update if needed
@@ -552,7 +563,9 @@ end
 local function DrawGraph()
 	if not FarmLog_GraphWindow or not FarmLog_GraphWindow:IsShown() then return end
 	
-	local session = GetCurrentSession()
+	local farm = FLogVars.farms[FLogVars.currentFarm]
+	if not farm then return end
+	local session = farm.current
 	if not session.graphData or #session.graphData < 2 then return end
 	
 	local graphFrame = FarmLog_GraphWindow_Content
@@ -998,14 +1011,7 @@ local function IncreaseSessionDictVar(varName, entry, incValue)
 	farm.current[varName][entry] = (farm.current[varName][entry] or 0) + incValue 
 end
 
-local function GetCurrentSession()
-	local farm = FLogVars.farms[FLogVars.currentFarm]
-	if not farm then 
-		farm = {["past"] = emptySession(), ["current"] = emptySession()}
-		FLogVars.farms[FLogVars.currentFarm] = farm 
-	end 
-	return farm.current
-end 
+ 
 
 -- Auction house access 
 
