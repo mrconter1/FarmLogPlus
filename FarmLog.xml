@@ -721,6 +721,48 @@
         </Scripts>
       </Button>      <!--$parent_NewSessionButton-->
 
+      <Button name="$parent_GraphButton" inherits="BackdropTemplate">
+        <Size>
+          <AbsDimension x="14" y="14"/>
+        </Size>
+        <Anchors>
+          <Anchor point="TOPLEFT" relativeTo="$parent_NewSessionButton" relativePoint="TOPRIGHT">
+            <Offset>
+              <AbsDimension x="4" y="0"/>
+            </Offset>
+          </Anchor>
+        </Anchors>
+        <Layers>
+          <Layer level="ARTWORK">
+            <FontString name="$parent_Text" inherits="ChatFontNormal" font="FarmLogSmallFont" text="G">
+              <Color r="0.2" g="0.8" b="0.2"/>
+              <Anchors>
+                <Anchor point="CENTER" />
+              </Anchors>
+            </FontString>
+          </Layer>
+        </Layers>
+        <Scripts>
+          <OnLoad>
+            self.label = FarmLog_MainWindow_GraphButton_Text
+            self:SetBackdrop ({bgFile = [[Interface\AddOns\FarmLog\assets\background]], tile = true, tileSize = 16, insets = {left = 0, right = 0, top = 0, bottom = 0}})
+          </OnLoad>
+          <OnEnter>
+            FarmLog_SetTextButtonBackdropColor(self, true)
+            GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+	          GameTooltip:SetText(FarmLog.L["show-graph-help"])
+	          GameTooltip:Show()
+          </OnEnter>
+          <OnLeave>
+            FarmLog_SetTextButtonBackdropColor(self, false)
+          	GameTooltip_Hide();
+          </OnLeave>
+          <OnClick>
+            self:Clicked()
+          </OnClick>
+        </Scripts>
+      </Button>      <!--$parent_GraphButton-->
+
       <Frame name="$parent_Title" enableMouse="true" movable="true" resizable="true" inherits="BackdropTemplate">
         <Size>
           <AbsDimension y="18"/>
@@ -1639,6 +1681,135 @@
 
     </Frames>
   </Frame>  <!--FarmLog_LogWindow-->
+
+  <Frame name="FarmLog_GraphWindow" parent="UIParent" frameStrata="HIGH" enableMouse="true" movable="true" resizable="true" inherits="BackdropTemplate">
+    <Size>
+      <AbsDimension x="400" y="300"/>
+    </Size>
+    <Anchors>
+      <Anchor point="CENTER" />
+    </Anchors>
+    <ResizeBounds>
+      <minResize x="300" y="200" />
+      <maxResize x="800" y="600" />
+    </ResizeBounds>
+    <Scripts>
+      <OnLoad>
+        self:SetBackdrop ({bgFile = [[Interface\AddOns\FarmLog\assets\background]], tile = true, tileSize = 16, insets = {left = 0, right = 0, top = 0, bottom = 0}})
+   			self:SetBackdropColor (0, 0, 0, 0.8)
+    		self:SetBackdropBorderColor(0, 0, 0, 1)
+        tinsert(UISpecialFrames, self:GetName())
+        self:Hide()
+      </OnLoad>
+    </Scripts>
+
+    <Frames>
+
+      <Button name="$parent_CloseButton" inherits="UIPanelCloseButton">
+        <Size>
+          <AbsDimension x="26" y="26"/>
+        </Size>
+        <Anchors>
+          <Anchor point="TOPRIGHT">
+            <Offset>
+              <AbsDimension x="1" y="1"/>
+            </Offset>
+          </Anchor>
+        </Anchors>
+        <Scripts>
+          <OnClick>
+            FarmLog_GraphWindow:Hide()
+          </OnClick>
+        </Scripts>
+      </Button>      <!--$parent_CloseButton-->
+
+      <Frame name="$parent_Title" enableMouse="true" movable="true" resizable="true" inherits="BackdropTemplate">
+        <Size>
+          <AbsDimension x="120" y="20"/>
+        </Size>
+        <Anchors>
+          <Anchor point="TOPLEFT" relativeTo="$parent" relativePoint="TOPLEFT">
+            <Offset>
+              <AbsDimension x="2" y="-2"/>
+            </Offset>
+          </Anchor>
+          <Anchor point="TOPRIGHT" relativeTo="$parent" relativePoint="TOPRIGHT">
+            <Offset>
+              <AbsDimension x="-2" y="-2"/>
+            </Offset>
+          </Anchor>
+        </Anchors>
+        <Scripts>
+          <OnLoad>
+            self:SetBackdrop ({bgFile = [[Interface\AddOns\FarmLog\assets\background]], tile = true, tileSize = 16, insets = {left = 0, right = 0, top = 0, bottom = 0}})
+       			self:SetBackdropColor(0.5, 0.5, 0.5, 0.3)
+        		self:SetBackdropBorderColor(0, 0, 0, 0)
+            self:RegisterForDrag("LeftButton")
+          </OnLoad>
+          <OnDragStart>
+            FarmLog_GraphWindow:StartMoving()
+          </OnDragStart>
+          <OnDragStop>
+          	FarmLog_GraphWindow:StopMovingOrSizing();
+          </OnDragStop>
+        </Scripts>
+        <Layers>
+          <Layer level="BACKGROUND">
+            <FontString name="$parent_Text" inherits="ChatFontNormal" font="FarmLogFont" text="Picks Per Hour - Rolling 10min Window">
+              <Color r="0.2" g="0.8" b="0.2"/>
+              <Anchors>
+                <Anchor point="CENTER" />
+              </Anchors>
+            </FontString>
+          </Layer>
+        </Layers>
+      </Frame>      <!--$parent_Title-->
+
+      <Button name="$parent_Resize">
+        <Size>
+          <AbsDimension x="16" y="16"/>
+        </Size>
+        <Anchors>
+          <Anchor point="BOTTOMLEFT">
+            <Offset>
+              <AbsDimension x="-2" y="-2"/>
+            </Offset>
+          </Anchor>
+        </Anchors>
+        <NormalTexture file="Interface\AddOns\FarmLog\assets\FarmLogResizeButton" />
+        <HighlightTexture file="Interface\AddOns\FarmLog\assets\FarmLogResizeButton" />
+        <Scripts>
+          <OnMouseDown>
+            FarmLog_GraphWindow:StartSizing("BOTTOMLEFT")
+          </OnMouseDown>
+          <OnMouseUp>
+            FarmLog_GraphWindow:StopMovingOrSizing()
+          </OnMouseUp>
+        </Scripts>
+      </Button>
+
+      <Frame name="$parent_Content">
+        <Anchors>
+          <Anchor point="TOPLEFT" relativeTo="$parent_Title" relativePoint="BOTTOMLEFT">
+            <Offset>
+              <AbsDimension x="5" y="-3"/>
+            </Offset>
+          </Anchor>
+          <Anchor point="BOTTOMRIGHT">
+            <Offset>
+              <AbsDimension x="-5" y="20"/>
+            </Offset>
+          </Anchor>
+        </Anchors>
+        <Scripts>
+          <OnLoad>
+            -- This frame will hold the graph content
+          </OnLoad>
+        </Scripts>
+      </Frame>      <!--$parent_Content-->
+
+    </Frames>
+  </Frame>  <!--FarmLog_GraphWindow-->
 
   <Frame name="FarmLogFrame_Options">
   </Frame>  <!---->

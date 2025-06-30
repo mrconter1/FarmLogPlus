@@ -142,6 +142,10 @@ function FarmLog_BuildLocalization(context)
     L["honorDRinBGs"] = "Enable honor diminishing returns in BGs"
     L["autoResumeBGs"] = "Auto resume BG farms when entering"
     L["TSM Price Source"] = "TSM Price Source"
+    L["10min Average"] = "10min Average"
+    L["Rolling Rate"] = "Rolling Rate"
+    L["picks"] = "picks"
+    L["show-graph-help"] = "Show rolling statistics graph"
     if (GetLocale() == "enUS") then
     end
     return L

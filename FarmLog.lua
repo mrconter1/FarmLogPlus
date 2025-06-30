@@ -237,6 +237,11 @@ FLogVars = {
 	}
 }
 
+local ROLLING_WINDOW_MINUTES = 10
+local ROLLING_UPDATE_INTERVAL = 5 -- Update rolling stats every 5 seconds
+local MAX_GRAPH_POINTS = 60 -- Store up to 60 data points for graphing
+local GRAPH_UPDATE_INTERVAL = 10 -- Update graph every 10 seconds
+
 local function emptySession() 
 	return {
 		drops = {},
@@ -258,6 +263,10 @@ local function emptySession()
 		bgs = {},
 		bgsWin = {},
 		bgsLoss = {},
+		-- New fields for rolling statistics
+		pickHistory = {}, -- Store timestamped pick events: {{timestamp, itemLink, quantity, mobName}, ...}
+		rollingStats = {}, -- Store rolling averages: {tenMinAvg = X, rollingPerHour = Y, lastUpdate = timestamp}
+		graphData = {}, -- Store graph data points: {{timestamp, picksPerHour}, ...}
 	}
 end 
 
@@ -414,6 +423,199 @@ local function extractItemID(link)
 	-- remove player level from item link
 	local _, id = _G.string.split(":", link)
 	return id 
+end
+
+-- Rolling Statistics Functions
+
+local function AddPickToHistory(itemLink, quantity, mobName)
+	if not FLogVars.enabled then return end
+	
+	local session = GetCurrentSession()
+	if not session.pickHistory then session.pickHistory = {} end
+	
+	local now = time()
+	tinsert(session.pickHistory, {now, itemLink, quantity or 1, mobName})
+	
+	-- Clean up old entries (older than 1 hour to keep some historical data)
+	local cutoff = now - 3600
+	local newHistory = {}
+	for _, entry in ipairs(session.pickHistory) do
+		if entry[1] >= cutoff then
+			tinsert(newHistory, entry)
+		end
+	end
+	session.pickHistory = newHistory
+end
+
+local function CalculateRollingStats()
+	local session = GetCurrentSession()
+	if not session.pickHistory then return end
+	
+	local now = time()
+	local windowStart = now - (ROLLING_WINDOW_MINUTES * 60)
+	
+	-- Count picks in the rolling window
+	local windowPicks = 0
+	for _, entry in ipairs(session.pickHistory) do
+		if entry[1] >= windowStart then
+			windowPicks = windowPicks + entry[3] -- entry[3] is quantity
+		end
+	end
+	
+	-- Calculate averages
+	local tenMinAvg = windowPicks
+	local rollingPerHour = (windowPicks / ROLLING_WINDOW_MINUTES) * 60
+	
+	-- Store results
+	if not session.rollingStats then session.rollingStats = {} end
+	session.rollingStats.tenMinAvg = tenMinAvg
+	session.rollingStats.rollingPerHour = rollingPerHour
+	session.rollingStats.lastUpdate = now
+	
+	-- Update graph data
+	UpdateGraphData(rollingPerHour)
+	
+	return tenMinAvg, rollingPerHour
+end
+
+local function UpdateGraphData(picksPerHour)
+	local session = GetCurrentSession()
+	if not session.graphData then session.graphData = {} end
+	
+	local now = time()
+	tinsert(session.graphData, {now, picksPerHour})
+	
+	-- Keep only recent data points
+	local cutoff = now - (MAX_GRAPH_POINTS * GRAPH_UPDATE_INTERVAL)
+	local newData = {}
+	for _, point in ipairs(session.graphData) do
+		if point[1] >= cutoff then
+			tinsert(newData, point)
+		end
+	end
+	session.graphData = newData
+end
+
+local function GetRollingStats()
+	local session = GetCurrentSession()
+	if not session.rollingStats then return 0, 0 end
+	
+	-- Update if needed
+	local now = time()
+	if not session.rollingStats.lastUpdate or (now - session.rollingStats.lastUpdate) >= ROLLING_UPDATE_INTERVAL then
+		CalculateRollingStats()
+	end
+	
+	return session.rollingStats.tenMinAvg or 0, session.rollingStats.rollingPerHour or 0
+end
+
+-- Graph Rendering Functions
+
+local graphLines = {}
+local lastGraphUpdate = 0
+
+local function ClearGraphLines()
+	for _, line in ipairs(graphLines) do
+		if line:GetParent() then
+			line:Hide()
+		end
+	end
+	graphLines = {}
+end
+
+local function CreateGraphLine(parent, x1, y1, x2, y2, color)
+	local line = parent:CreateTexture(nil, "ARTWORK")
+	line:SetColorTexture(color.r or 0.2, color.g or 0.8, color.b or 0.2, color.a or 1)
+	
+	-- Calculate line dimensions and position
+	local length = math.sqrt((x2 - x1)^2 + (y2 - y1)^2)
+	local angle = math.atan2(y2 - y1, x2 - x1)
+	
+	line:SetSize(length, 2)
+	line:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", x1, y1)
+	
+	-- Rotation isn't directly supported, so we'll use simple vertical/horizontal lines
+	if math.abs(x2 - x1) > math.abs(y2 - y1) then
+		-- More horizontal
+		line:SetSize(math.abs(x2 - x1), 2)
+		line:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", math.min(x1, x2), (y1 + y2) / 2)
+	else
+		-- More vertical  
+		line:SetSize(2, math.abs(y2 - y1))
+		line:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", (x1 + x2) / 2, math.min(y1, y2))
+	end
+	
+	tinsert(graphLines, line)
+	return line
+end
+
+local function DrawGraph()
+	if not FarmLog_GraphWindow or not FarmLog_GraphWindow:IsShown() then return end
+	
+	local session = GetCurrentSession()
+	if not session.graphData or #session.graphData < 2 then return end
+	
+	local graphFrame = FarmLog_GraphWindow_Content
+	local width = graphFrame:GetWidth() - 20
+	local height = graphFrame:GetHeight() - 40
+	
+	ClearGraphLines()
+	
+	-- Find min/max values for scaling
+	local minValue, maxValue = math.huge, -math.huge
+	local minTime, maxTime = math.huge, -math.huge
+	
+	for _, point in ipairs(session.graphData) do
+		minValue = math.min(minValue, point[2])
+		maxValue = math.max(maxValue, point[2])
+		minTime = math.min(minTime, point[1])
+		maxTime = math.max(maxTime, point[1])
+	end
+	
+	if maxValue == minValue then maxValue = minValue + 1 end
+	if maxTime == minTime then maxTime = minTime + 1 end
+	
+	-- Draw grid lines
+	local gridColor = {r = 0.3, g = 0.3, b = 0.3, a = 0.5}
+	for i = 1, 4 do
+		local y = (height / 5) * i
+		CreateGraphLine(graphFrame, 10, y + 20, width, y + 20, gridColor)
+	end
+	
+	-- Draw data lines
+	local dataColor = {r = 0.2, g = 0.8, b = 0.2, a = 1}
+	local prevX, prevY = nil, nil
+	
+	for i, point in ipairs(session.graphData) do
+		local x = 10 + ((point[1] - minTime) / (maxTime - minTime)) * (width - 20)
+		local y = 20 + ((point[2] - minValue) / (maxValue - minValue)) * height
+		
+		if prevX and prevY then
+			CreateGraphLine(graphFrame, prevX, prevY, x, y, dataColor)
+		end
+		
+		prevX, prevY = x, y
+	end
+end
+
+function FarmLog:ToggleGraphWindow()
+	if not FarmLog_GraphWindow then return end
+	
+	if FarmLog_GraphWindow:IsShown() then
+		FarmLog_GraphWindow:Hide()
+	else
+		FarmLog_GraphWindow:Show()
+		DrawGraph()
+	end
+end
+
+function FarmLog:UpdateGraph()
+	local now = time()
+	if now - lastGraphUpdate >= GRAPH_UPDATE_INTERVAL then
+		CalculateRollingStats() -- This also updates graph data
+		DrawGraph()
+		lastGraphUpdate = now
+	end
 end 
 
 function mergeDrops(a, b) 
@@ -794,6 +996,15 @@ local function IncreaseSessionDictVar(varName, entry, incValue)
 	local farm = FLogVars.farms[FLogVars.currentFarm]
 	if not farm then return nil end 
 	farm.current[varName][entry] = (farm.current[varName][entry] or 0) + incValue 
+end
+
+local function GetCurrentSession()
+	local farm = FLogVars.farms[FLogVars.currentFarm]
+	if not farm then 
+		farm = {["past"] = emptySession(), ["current"] = emptySession()}
+		FLogVars.farms[FLogVars.currentFarm] = farm 
+	end 
+	return farm.current
 end 
 
 -- Auction house access 
@@ -1239,6 +1450,17 @@ function FarmLog_MainWindow:Refresh()
 		if isPositive(vendorProfit) then 
 			self:AddRow(L["Vendor"], GetShortCoinTextureString(vendorProfit), nil, TEXT_COLOR["money"]) 
 		end 
+	end 
+	
+	-- Rolling Statistics Display
+	if FLogGlobalVars.track.drops and not pvpMode and not FLogVars.viewTotal then
+		local tenMinAvg, rollingPerHour = GetRollingStats()
+		if tenMinAvg > 0 then
+			self:AddRow(L["10min Average"] .. ": " .. numberToString(tenMinAvg) .. " " .. L["picks"], nil, nil, "88cc88")
+		end
+		if rollingPerHour > 0 then
+			self:AddRow(L["Rolling Rate"] .. ": " .. numberToString(math.floor(rollingPerHour)) .. "/hr", nil, nil, "88cc88")
+		end
 	end 
 	
 	local xp = FLogGlobalVars.track.xp and GetSessionVar("xp", FLogVars.viewTotal)
@@ -2203,6 +2425,11 @@ function FarmLog:InsertLoot(mobName, itemLink, count, vendorPrice, section, mul)
 	else
 		sessionDrops[mobName][itemLink] = {count, value * count, value, priceType}
 	end
+	
+	-- Add to pick history for rolling statistics
+	if section == "drops" then
+		AddPickToHistory(itemLink, count, mobName)
+	end
 end
 
 local SelfLootStrings = {
@@ -2376,6 +2603,7 @@ function FarmLog:OnAddonLoaded()
 	FarmLog_SetTextButtonBackdropColor(FarmLog_MainWindow_SessionsButton)
 	FarmLog_SetTextButtonBackdropColor(FarmLog_MainWindow_ClearButton)
 	FarmLog_SetTextButtonBackdropColor(FarmLog_MainWindow_NewSessionButton)
+	FarmLog_SetTextButtonBackdropColor(FarmLog_MainWindow_GraphButton)
 	FarmLog_SetTextButtonBackdropColor(FarmLog_SessionsWindow_Buttons_NewFarmButton)
 
 	-- sessions window buttons
@@ -2729,6 +2957,8 @@ function FarmLog:OnUpdate()
 				lastHudDressUp = now
 			end 
 		end 
+		-- Update rolling statistics and graph
+		self:UpdateGraph()
 	end 
 	if skillNameTime then 
 		local timeout = SKILL_LOOTWINDOW_OPEN_TIMEOUT[skillName or ""] or 0
@@ -3180,6 +3410,10 @@ function FarmLog_MainWindow_ToggleHUDButton:Clicked(button)
 	end 
 end 
 
+function FarmLog_MainWindow_GraphButton:Clicked() 
+	FarmLog:ToggleGraphWindow()
+end 
+
 function FarmLog_SessionsWindow_Buttons_NewFarmButton:Clicked()
 	local searchText = FarmLog_SessionsWindow_Buttons_SearchBox:GetText()
 	if FLogVars.farms[searchText] then 
@@ -3402,6 +3636,7 @@ SlashCmdList.FARMLOG = function(msg)
 			out(" |cff00ff00/fl dec|r decrease kill count of selected target")
 			out(" |cff00ff00/fl bl|r show black lotus log")
 			out(" |cff00ff00/fl ah|r scan AH for current prices, must have AH window open")
+			out(" |cff00ff00/fl g|r show/hide rolling statistics graph")
 		elseif "SET" == cmd then
 			local startIndex, _ = string.find(arg1, "%|c");
 			local _, endIndex = string.find(arg1, "%]%|h%|r");
@@ -3522,6 +3757,8 @@ SlashCmdList.FARMLOG = function(msg)
 			FarmLog:LogBlackLotus(GetZoneText(), pickMeta)
 		elseif "BLS" == cmd then 
 			FarmLog:SaveBLSeenTime() 
+		elseif "GRAPH" == cmd or "G" == cmd then 
+			FarmLog:ToggleGraphWindow()
 		else 
 			out("Unknown command "..cmd)
 		end 
