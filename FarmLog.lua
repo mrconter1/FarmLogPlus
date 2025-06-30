@@ -3643,6 +3643,7 @@ SlashCmdList.FARMLOG = function(msg)
 			out(" |cff00ff00/fl bl|r show black lotus log")
 			out(" |cff00ff00/fl ah|r scan AH for current prices, must have AH window open")
 			out(" |cff00ff00/fl g|r show/hide rolling statistics graph")
+			out(" |cff00ff00/fl test [count]|r add fake flower picks for testing rolling stats")
 		elseif "SET" == cmd then
 			local startIndex, _ = string.find(arg1, "%|c");
 			local _, endIndex = string.find(arg1, "%]%|h%|r");
@@ -3765,6 +3766,33 @@ SlashCmdList.FARMLOG = function(msg)
 			FarmLog:SaveBLSeenTime() 
 		elseif "GRAPH" == cmd or "G" == cmd then 
 			FarmLog:ToggleGraphWindow()
+		elseif "TEST" == cmd or "FAKE" == cmd then
+			-- Add fake flower pick for testing
+			local count = tonumber(arg1) or 1
+			local fakeItems = {
+				"|cffffffff|Hitem:2447::::::::1:::::|h[Peacebloom]|h|r",
+				"|cffffffff|Hitem:765::::::::1:::::|h[Silverleaf]|h|r", 
+				"|cffffffff|Hitem:2449::::::::1:::::|h[Earthroot]|h|r",
+				"|cffffffff|Hitem:785::::::::1:::::|h[Mageroyal]|h|r",
+				"|cff1eff00|Hitem:3820::::::::1:::::|h[Stranglekelp]|h|r",
+			}
+			
+			for i = 1, count do
+				local randomItem = fakeItems[math.random(#fakeItems)]
+				local quantity = math.random(1, 3)
+				local mobName = L["Herbalism"]
+				
+				-- Simulate the loot insertion
+				FarmLog:InsertLoot(mobName, randomItem, quantity, 0)
+				if count == 1 then
+					out("Added fake pick: " .. randomItem .. " x" .. quantity)
+				end
+			end
+			
+			if count > 1 then
+				out("Added " .. count .. " fake flower picks for testing")
+			end
+			FarmLog_MainWindow:Refresh()
 		else 
 			out("Unknown command "..cmd)
 		end 
